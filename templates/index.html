@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Heimdall PFR Monitor</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        /* CSS Style */
+        body { margin: 0; padding: 0; background-color: #121212; color: #e0e0e0; font-family: 'Consolas', 'Courier New', monospace; }
+        .container { max-width: 1000px; margin: 20px auto; padding: 20px; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
+        .status-dot { height: 12px; width: 12px; background-color: #555; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        .status-dot.connected { background-color: #00ff00; box-shadow: 0 0 10px #00ff00; }
+
+        /* Log Windows */
+        .terminal-window {
+            background-color: #000; border: 1px solid #333; height: 500px; 
+            overflow-y: auto; padding: 15px; border-radius: 4px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5); font-size: 14px;
+            scroll-behavior: smooth;
+        }
+        .log-line { margin: 2px 0; word-break: break-all; }
+        .log-info { color: #4ec9b0; }
+        .log-warn { color: #ce9178; }
+        .log-cmd { color: #dcdcaa; font-weight: bold; }
+
+        /* input console */
+        .input-area { margin-top: 15px; display: flex; gap: 10px; }
+        input { flex: 1; padding: 10px; background: #2d2d2d; border: 1px solid #444; color: white; font-family: monospace; font-size: 16px; outline: none; }
+        input:focus { border-color: #007acc; }
+        button { padding: 10px 20px; background: #007acc; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background: #005f9e; }
+    </style>
+</head>
+<body>
+
+<div id="app" class="container">
+    <div class="header">
+        <h1>👁️ PROJECT HEIMDALL</h1>
+        <div>
+            <span class="status-dot" :class="{ connected: isConnected }"></span>
+            [[ isConnected ? 'SYSTEM ONLINE' : 'DISCONNECTED' ]]
+        </div>
+    </div>
+
+    <div class="terminal-window" id="log-box">
+        <div v-for="(log, index) in logs" :key="index" class="log-line">
+            <span v-if="log.includes('WARN')" class="log-warn">[[ log ]]</span>
+            <span v-else-if="log.includes('CMD')" class="log-cmd">[[ log ]]</span>
+            <span v-else class="log-info">[[ log ]]</span>
+        </div>
+    </div>
+
+    <div class="input-area">
+        <input type="text" v-model="commandInput" @keyup.enter="sendCommand" placeholder="Enter PFR shell command (e.g., status, reboot)...">
+        <button @click="sendCommand">SEND</button>
+    </div>
+</div>
+
+<script>
+    const { createApp, ref, onMounted, nextTick } = Vue;
+
+    const app = createApp({
+        setup() {
+            const logs = ref(["Initializing Heimdall Interface..."]);
+            const commandInput = ref("");
+            const isConnected = ref(false);
+            let ws = null;
+
+            const connectWebSocket = () => {
+                const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+                const wsUrl = `${protocol}://${window.location.host}/ws`;
+                
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => {
+                    isConnected.value = true;
+                    logs.value.push("[SYSTEM] Connection established.");
+                };
+
+                ws.onmessage = (event) => {
+                    logs.value.push(event.data);
+                    scrollToBottom();
+                };
+
+                ws.onclose = () => {
+                    isConnected.value = false;
+                    logs.value.push("[SYSTEM] Connection lost. Reconnecting in 3s...");
+                    setTimeout(connectWebSocket, 3000);
+                };
+            };
+
+            const sendCommand = () => {
+                if (commandInput.value && ws && isConnected.value) {
+                    logs.value.push(`>> USER: ${commandInput.value}`);
+                    ws.send(commandInput.value);
+                    commandInput.value = "";
+                    scrollToBottom();
+                }
+            };
+
+            const scrollToBottom = () => {
+                nextTick(() => {
+                    const el = document.getElementById('log-box');
+                    if(el) el.scrollTop = el.scrollHeight;
+                });
+            };
+
+            onMounted(() => {
+                connectWebSocket();
+            });
+
+            return { logs, commandInput, sendCommand, isConnected };
+        }
+    });
+
+    app.config.compilerOptions.delimiters = ['[[', ']]'];
+    app.mount('#app');
+</script>
+
+</body>
+</html>
