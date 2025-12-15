@@ -48,6 +48,9 @@
         .btn-danger { color: #f14c4c; border-color: #f14c4c; }
         .btn-danger:hover { background-color: #f14c4c; color: white; }
 
+        .btn-clear { color: #f0ad4e; border-color: #f0ad4e; margin-left: 10px; }
+        .btn-clear:hover { background-color: #f0ad4e; color: #121212; }
+
         .input-area { display: flex; gap: 10px; }
         input { flex: 1; padding: 10px; background: #222; border: 1px solid #444; color: white; }
 
@@ -78,8 +81,12 @@
                 </option>
             </select>
             
-            <button @click="fetchPorts" style="padding: 5px 10px; background: #444; border:none; color:white; cursor:pointer;">
+            <button @click="fetchPorts" class="cmd-btn" style="color: white; border-color: #555;">
                 ↻ Refresh
+            </button>
+            
+            <button @click="clearLogs" class="cmd-btn btn-clear">
+                🚫 Clear Log
             </button>
         </div>
     </div>
@@ -99,6 +106,7 @@
             [[ btn.label ]]
         </button>
     </div>
+
     <div class="input-area">
         <input type="text" v-model="commandInput" @keyup.enter="sendCommand" placeholder="Enter command..." :disabled="!isConnected">
         <button @click="sendCommand" :disabled="!isConnected">SEND</button>
@@ -129,7 +137,7 @@
                 { label: 'Show Status (0xf0)', cmd: 'ipmitool raw 0x32 0xf0' },
                 { label: 'Prov Mode ON (0xf1 1)', cmd: 'ipmitool raw 0x32 0xf1 1' },
                 { label: 'Prov Mode OFF (0xf1 0)', cmd: 'ipmitool raw 0x32 0xf1 0' },
-                { label: 'BMC REBOOT', cmd: 'sudo reboot', isDanger: true } 
+                { label: 'BMC REBOOT', cmd: 'reboot', isDanger: true }
             ]);
 
             const fetchPorts = async () => {
@@ -148,9 +156,14 @@
 
             const changePort = () => {
                 if (selectedPort.value) {
+                    logs.value.push(`----------------------------------------`);
                     logs.value.push(`[SYSTEM] Switching to ${selectedPort.value}...`);
                     connectWebSocket(selectedPort.value);
                 }
+            };
+
+            const clearLogs = () => {
+                logs.value = [];
             };
 
             const connectWebSocket = (portName) => {
@@ -160,8 +173,10 @@
 
                 ws.onopen = () => {
                     isConnected.value = true;
-                    logs.value = [];
+                    // switch serial port will auto clear log. 
+                    // logs.value = [];
                     logs.value.push(`[SYSTEM] Connection established to ${portName}`);
+                    scrollToBottom();
                 };
 
                 ws.onmessage = (event) => {
@@ -184,8 +199,6 @@
 
             const sendDirect = (cmd) => {
                 if (ws && isConnected.value) {
-                    // log display the button command
-                    logs.value.push(`>> [BTN] ${cmd}`); 
                     ws.send(cmd);
                     scrollToBottom();
                 }
@@ -205,7 +218,7 @@
             return { 
                 logs, commandInput, sendCommand, isConnected, 
                 portList, selectedPort, changePort, fetchPorts,
-                quickCommands, sendDirect
+                quickCommands, sendDirect, clearLogs
             };
         }
     });
