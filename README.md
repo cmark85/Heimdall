@@ -43,7 +43,7 @@ venv\Scripts\activate
 ### 3. Install Dependencies
 
 ```cmd
-(venv)$ py -m pip install fastapi uvicorn pyserial websockets jinja2
+py -m pip install fastapi uvicorn pyserial websockets jinja2
 ```
 
 ## Configuration Before running the application
