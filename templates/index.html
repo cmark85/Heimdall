@@ -2,59 +2,114 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Heimdall PFR Monitor</title>
+    <title>Heimdall Console</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
-        /* CSS Style */
-        body { margin: 0; padding: 0; background-color: #121212; color: #e0e0e0; font-family: 'Consolas', 'Courier New', monospace; }
-        .container { max-width: 1000px; margin: 20px auto; padding: 20px; }
+        body { background-color: #121212; color: #e0e0e0; font-family: 'Consolas', monospace; padding: 20px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; }
         
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
-        .status-dot { height: 12px; width: 12px; background-color: #555; border-radius: 50%; display: inline-block; margin-right: 5px; }
-        .status-dot.connected { background-color: #00ff00; box-shadow: 0 0 10px #00ff00; }
-
-        /* Log Windows */
-        .terminal-window {
-            background-color: #000; border: 1px solid #333; height: 500px; 
-            overflow-y: auto; padding: 15px; border-radius: 4px;
-            box-shadow: 0 0 15px rgba(0,0,0,0.5); font-size: 14px;
-            scroll-behavior: smooth;
+        .port-select {
+            padding: 8px;
+            background-color: #333;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+            cursor: pointer;
         }
-        .log-line { margin: 2px 0; word-break: break-all; }
-        .log-info { color: #4ec9b0; }
-        .log-warn { color: #ce9178; }
-        .log-cmd { color: #dcdcaa; font-weight: bold; }
+        .port-select:hover { background-color: #444; }
 
-        /* input console */
-        .input-area { margin-top: 15px; display: flex; gap: 10px; }
-        input { flex: 1; padding: 10px; background: #2d2d2d; border: 1px solid #444; color: white; font-family: monospace; font-size: 16px; outline: none; }
-        input:focus { border-color: #007acc; }
-        button { padding: 10px 20px; background: #007acc; color: white; border: none; cursor: pointer; font-weight: bold; }
-        button:hover { background: #005f9e; }
+        .terminal-window { background: black; height: 450px; overflow-y: auto; padding: 10px; border: 1px solid #333; margin-bottom: 10px;}
+        .log-line { margin: 2px 0; word-wrap: break-word; }
+        
+        .quick-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .cmd-btn {
+            background-color: #1e1e1e;
+            color: #4ec9b0;
+            border: 1px solid #4ec9b0;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-family: monospace;
+            font-size: 13px;
+            border-radius: 3px;
+            transition: all 0.2s;
+        }
+        .cmd-btn:hover { background-color: #4ec9b0; color: #1e1e1e; }
+        .cmd-btn:active { transform: translateY(2px); }
+        .cmd-btn:disabled { opacity: 0.5; cursor: not-allowed; border-color: #555; color: #555; }
+
+        .btn-danger { color: #f14c4c; border-color: #f14c4c; }
+        .btn-danger:hover { background-color: #f14c4c; color: white; }
+
+        .input-area { display: flex; gap: 10px; }
+        input { flex: 1; padding: 10px; background: #222; border: 1px solid #444; color: white; }
+
+        .footer {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #333;
+            text-align: center;
+            font-size: 12px;
+            color: #555;
+        }
+        .footer a { color: #777; text-decoration: none; margin: 0 5px; transition: color 0.2s; }
+        .footer a:hover { color: #4ec9b0; text-decoration: underline; }
     </style>
 </head>
 <body>
 
-<div id="app" class="container">
+<div id="app">
     <div class="header">
-        <h1>👁️ PROJECT HEIMDALL</h1>
-        <div>
-            <span class="status-dot" :class="{ connected: isConnected }"></span>
-            [[ isConnected ? 'SYSTEM ONLINE' : 'DISCONNECTED' ]]
+        <h1>👁️ HEIMDALL </h1>
+        
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <label>PORT:</label>
+            <select v-model="selectedPort" @change="changePort" class="port-select">
+                <option disabled value="">Select Port</option>
+                <option v-for="port in portList" :key="port" :value="port">
+                    [[ port ]]
+                </option>
+            </select>
+            
+            <button @click="fetchPorts" style="padding: 5px 10px; background: #444; border:none; color:white; cursor:pointer;">
+                ↻ Refresh
+            </button>
         </div>
     </div>
 
     <div class="terminal-window" id="log-box">
-        <div v-for="(log, index) in logs" :key="index" class="log-line">
-            <span v-if="log.includes('WARN')" class="log-warn">[[ log ]]</span>
-            <span v-else-if="log.includes('CMD')" class="log-cmd">[[ log ]]</span>
-            <span v-else class="log-info">[[ log ]]</span>
-        </div>
+        <div v-for="(log, index) in logs" :key="index" class="log-line">[[ log ]]</div>
     </div>
 
+    <div class="quick-actions">
+        <button 
+            v-for="btn in quickCommands" 
+            :key="btn.label" 
+            class="cmd-btn" 
+            :class="{ 'btn-danger': btn.isDanger }"
+            @click="sendDirect(btn.cmd)"
+            :disabled="!isConnected">
+            [[ btn.label ]]
+        </button>
+    </div>
     <div class="input-area">
-        <input type="text" v-model="commandInput" @keyup.enter="sendCommand" placeholder="Enter PFR shell command (e.g., status, reboot)...">
-        <button @click="sendCommand">SEND</button>
+        <input type="text" v-model="commandInput" @keyup.enter="sendCommand" placeholder="Enter command..." :disabled="!isConnected">
+        <button @click="sendCommand" :disabled="!isConnected">SEND</button>
+    </div>
+
+    <div class="footer">
+        <p>Developed by Mark Chen</p>
+        <p>
+            <a href="mailto:chen853825@gmail.com">chen853825@gmail.com</a> | 
+            <a href="https://github.com/cmark85/Heimdall" target="_blank">GitHub Repository</a>
+        </p>
     </div>
 </div>
 
@@ -63,20 +118,50 @@
 
     const app = createApp({
         setup() {
-            const logs = ref(["Initializing Heimdall Interface..."]);
+            const logs = ref([]);
             const commandInput = ref("");
             const isConnected = ref(false);
+            const portList = ref([]);       
+            const selectedPort = ref("");    
             let ws = null;
 
-            const connectWebSocket = () => {
+            const quickCommands = ref([
+                { label: 'Show Status (0xf0)', cmd: 'ipmitool raw 0x32 0xf0' },
+                { label: 'Prov Mode ON (0xf1 1)', cmd: 'ipmitool raw 0x32 0xf1 1' },
+                { label: 'Prov Mode OFF (0xf1 0)', cmd: 'ipmitool raw 0x32 0xf1 0' },
+                { label: 'BMC REBOOT', cmd: 'sudo reboot', isDanger: true } 
+            ]);
+
+            const fetchPorts = async () => {
+                try {
+                    const res = await fetch('/api/ports');
+                    const data = await res.json();
+                    portList.value = data;
+                    if (!selectedPort.value && data.length > 0) {
+                        selectedPort.value = data[0];
+                        connectWebSocket(data[0]);
+                    }
+                } catch (e) {
+                    logs.value.push("[SYSTEM_ERR] Failed to fetch ports.");
+                }
+            };
+
+            const changePort = () => {
+                if (selectedPort.value) {
+                    logs.value.push(`[SYSTEM] Switching to ${selectedPort.value}...`);
+                    connectWebSocket(selectedPort.value);
+                }
+            };
+
+            const connectWebSocket = (portName) => {
+                if (ws) { ws.close(); }
                 const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-                const wsUrl = `${protocol}://${window.location.host}/ws`;
-                
-                ws = new WebSocket(wsUrl);
+                ws = new WebSocket(`${protocol}://${window.location.host}/ws/${portName}`);
 
                 ws.onopen = () => {
                     isConnected.value = true;
-                    logs.value.push("[SYSTEM] Connection established.");
+                    logs.value = [];
+                    logs.value.push(`[SYSTEM] Connection established to ${portName}`);
                 };
 
                 ws.onmessage = (event) => {
@@ -86,16 +171,22 @@
 
                 ws.onclose = () => {
                     isConnected.value = false;
-                    logs.value.push("[SYSTEM] Connection lost. Reconnecting in 3s...");
-                    setTimeout(connectWebSocket, 3000);
                 };
             };
 
             const sendCommand = () => {
-                if (commandInput.value && ws && isConnected.value) {
-                    logs.value.push(`>> USER: ${commandInput.value}`);
+                if (ws && isConnected.value) {
                     ws.send(commandInput.value);
                     commandInput.value = "";
+                    nextTick(() => { document.querySelector('input').focus(); });
+                }
+            };
+
+            const sendDirect = (cmd) => {
+                if (ws && isConnected.value) {
+                    // log display the button command
+                    logs.value.push(`>> [BTN] ${cmd}`); 
+                    ws.send(cmd);
                     scrollToBottom();
                 }
             };
@@ -108,16 +199,19 @@
             };
 
             onMounted(() => {
-                connectWebSocket();
+                fetchPorts(); 
             });
 
-            return { logs, commandInput, sendCommand, isConnected };
+            return { 
+                logs, commandInput, sendCommand, isConnected, 
+                portList, selectedPort, changePort, fetchPorts,
+                quickCommands, sendDirect
+            };
         }
     });
-
+    
     app.config.compilerOptions.delimiters = ['[[', ']]'];
     app.mount('#app');
 </script>
-
 </body>
 </html>

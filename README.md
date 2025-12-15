@@ -1,6 +1,6 @@
 
 # Overview
-Project Heimdall: PFR Monitor WebUI**Project Heimdall** is a lightweight, browser-based interface designed for monitoring Intel PFR (Platform Firmware Resilience) status. It bridges the hardware UART interface to a modern WebUI, allowing developers to view real-time logs and send shell commands directly from a web browser.
+Project Heimdall: PFR Monitor WebUI **Project Heimdall** is a lightweight, browser-based interface designed for monitoring Intel PFR (Platform Firmware Resilience) status. It bridges the hardware UART interface to a modern WebUI, allowing developers to view real-time logs and send shell commands directly from a web browser.
 
 ## Features 
 Real-time Log Streaming View PFR boot logs and status updates instantly via WebSocket.
