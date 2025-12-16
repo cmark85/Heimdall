@@ -70,7 +70,7 @@
 
 <div id="app">
     <div class="header">
-        <h1>👁️ HEIMDALL </h1>
+        <h1>HEITDALL</h1>
         
         <div style="display: flex; gap: 10px; align-items: center;">
             <label>PORT:</label>
@@ -92,7 +92,7 @@
     </div>
 
     <div class="terminal-window" id="log-box">
-        <div v-for="(log, index) in logs" :key="index" class="log-line">[[ log ]]</div>
+        <div v-for="(log, index) in currentLogs" :key="index" class="log-line">[[ log ]]</div>
     </div>
 
     <div class="quick-actions">
@@ -122,11 +122,12 @@
 </div>
 
 <script>
-    const { createApp, ref, onMounted, nextTick } = Vue;
+    const { createApp, ref, computed, onMounted, nextTick } = Vue;
 
     const app = createApp({
         setup() {
-            const logs = ref([]);
+            const portLogs = ref({}); 
+            
             const commandInput = ref("");
             const isConnected = ref(false);
             const portList = ref([]);       
@@ -140,6 +141,19 @@
                 { label: 'BMC REBOOT', cmd: 'reboot', isDanger: true }
             ]);
 
+            const currentLogs = computed(() => {
+                if (!selectedPort.value) return [];
+                return portLogs.value[selectedPort.value] || [];
+            });
+
+            const addLog = (port, message) => {
+                if (!port) return;
+                if (!portLogs.value[port]) {
+                    portLogs.value[port] = [];
+                }
+                portLogs.value[port].push(message);
+            };
+
             const fetchPorts = async () => {
                 try {
                     const res = await fetch('/api/ports');
@@ -150,20 +164,20 @@
                         connectWebSocket(data[0]);
                     }
                 } catch (e) {
-                    logs.value.push("[SYSTEM_ERR] Failed to fetch ports.");
+                    console.error(e);
                 }
             };
 
             const changePort = () => {
                 if (selectedPort.value) {
-                    logs.value.push(`----------------------------------------`);
-                    logs.value.push(`[SYSTEM] Switching to ${selectedPort.value}...`);
                     connectWebSocket(selectedPort.value);
                 }
             };
 
             const clearLogs = () => {
-                logs.value = [];
+                if (selectedPort.value) {
+                    portLogs.value[selectedPort.value] = [];
+                }
             };
 
             const connectWebSocket = (portName) => {
@@ -173,15 +187,18 @@
 
                 ws.onopen = () => {
                     isConnected.value = true;
-                    // switch serial port will auto clear log. 
-                    // logs.value = [];
-                    logs.value.push(`[SYSTEM] Connection established to ${portName}`);
+                    if (!portLogs.value[portName]) {
+                        portLogs.value[portName] = [];
+                    }
+                    addLog(portName, `[SYSTEM] Connection established to ${portName}`);
                     scrollToBottom();
                 };
 
                 ws.onmessage = (event) => {
-                    logs.value.push(event.data);
-                    scrollToBottom();
+                    addLog(portName, event.data);
+                    if (portName === selectedPort.value) {
+                        scrollToBottom();
+                    }
                 };
 
                 ws.onclose = () => {
@@ -216,7 +233,8 @@
             });
 
             return { 
-                logs, commandInput, sendCommand, isConnected, 
+                currentLogs,
+                commandInput, sendCommand, isConnected, 
                 portList, selectedPort, changePort, fetchPorts,
                 quickCommands, sendDirect, clearLogs
             };
